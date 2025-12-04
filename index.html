@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo das Transformações</title>
+    <style>
+        /* CSS para a aparência do jogo */
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+
+        #game-container {
+            width: 800px; /* Tamanho grande para o quadrado do jogo */
+            height: 800px;
+            border: 5px solid #333;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+        }
+
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+            width: 100%;
+            height: 100%;
+        }
+
+        .cell {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 5%; /* Espaçamento interno para o shape */
+        }
+
+        .shape {
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out; /* Transição suave para as transformações */
+        }
+
+        /* --- Estilos das Fases --- */
+
+        /* Fase 1: Círculo Vazio (Contorno Preto) */
+        .shape-phase-1 {
+            width: 80%; /* Ajuste o tamanho para caber na célula */
+            height: 80%;
+            border-radius: 50%; /* Faz ser um círculo */
+            border: 2px solid black;
+            background-color: transparent;
+        }
+
+        /* Fase 1 (Preenchido): Círculo Preto */
+        .shape-phase-1-filled {
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            background-color: black;
+            border: none;
+        }
+
+        /* Fase 2: Quadrado Azul Claro */
+        .shape-phase-2 {
+            background-color: #ADD8E6; /* Azul Claro */
+            border-radius: 0; /* Faz ser um quadrado */
+        }
+
+        /* Fase 3: Triângulo Laranja */
+        .shape-phase-3 {
+            width: 0;
+            height: 0;
+            border-left: calc(800px / 10 * 0.4) solid transparent; /* Base do triângulo */
+            border-right: calc(800px / 10 * 0.4) solid transparent;
+            border-bottom: calc(800px / 10 * 0.7) solid orange; /* Altura do triângulo (laranja) */
+            background-color: transparent;
+        }
+
+        /* Fase 4: Retângulo Verde */
+        .shape-phase-4 {
+            width: 100%; /* Ocupa a largura da célula */
+            height: 50%; /* Retângulo mais "achatado" */
+            background-color: green;
+            border-radius: 0;
+        }
+
+        /* Fase 5: Hexágono Lilás */
+        .shape-phase-5 {
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            /* Usando clip-path para criar o hexágono */
+            -webkit-clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            background-color: #C8A2C8; /* Lilás */
+        }
+
+        /* Fase 6: Maçã Vermelha (simulação) */
+        .shape-phase-6 {
+            width: 80%;
+            height: 80%;
+            background-color: red;
+            border-radius: 50% 50% 40% 40% / 60% 60% 40% 40%; /* Simula o formato de maçã */
+            position: relative;
+        }
+        /* Adiciona um "cabinho" na maçã */
+        .shape-phase-6::before {
+            content: '';
+            position: absolute;
+            top: -15%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 5px;
+            height: 15%;
+            background-color: #8B4513; /* Marrom */
+            border-radius: 2px;
+        }
+
+        /* Fase 7: Pêra Verde Amarelada (simulação) */
+        .shape-phase-7 {
+            width: 60%;
+            height: 90%;
+            background-color: #ADFF2F; /* Verde Amarelado (Green Yellow) */
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; /* Simula formato de pêra */
+        }
+        /* Adiciona um "cabinho" na pêra */
+        .shape-phase-7::before {
+            content: '';
+            position: absolute;
+            top: -5%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 8%;
+            background-color: #8B4513; /* Marrom */
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Jogo das Transformações</h1>
+        <p>Fase Atual: <strong id="current-phase">1</strong></p>
+        <p>Cliques Totais: <strong id="click-count">0</strong></p>
+    </header>
+
+    <div id="game-container">
+        <div id="grid">
+            </div>
+    </div>
+
+    <script>
+        // JavaScript para a lógica do jogo
+
+        const GRID_SIZE = 10;
+        const TOTAL_SHAPES = GRID_SIZE * GRID_SIZE;
+        let currentPhase = 1;
+        let phaseClickCount = 0;
+        let totalClickCount = 0;
+
+        const gridElement = document.getElementById('grid');
+        const currentPhaseElement = document.getElementById('current-phase');
+        const clickCountElement = document.getElementById('click-count');
+
+        // Estrutura das Fases
+        const phases = [
+            null, // Índice 0 não usado
+            { // Fase 1: Círculo Vazio -> Círculo Preto
+                startClass: 'shape-phase-1',
+                nextClass: 'shape-phase-1-filled',
+                nextPhase: 2
+            },
+            { // Fase 2: Círculo Preto -> Quadrado Azul Claro
+                startClass: 'shape-phase-1-filled', // Começa com o final da fase 1
+                nextClass: 'shape-phase-2',
+                nextPhase: 3
+            },
+            { // Fase 3: Quadrado Azul Claro -> Triângulo Laranja
+                startClass: 'shape-phase-2',
+                nextClass: 'shape-phase-3',
+                nextPhase: 4
+            },
+            { // Fase 4: Triângulo Laranja -> Retângulo Verde
+                startClass: 'shape-phase-3',
+                nextClass: 'shape-phase-4',
+                nextPhase: 5
+            },
+            { // Fase 5: Retângulo Verde -> Hexágono Lilás
+                startClass: 'shape-phase-4',
+                nextClass: 'shape-phase-5',
+                nextPhase: 6
+            },
+            { // Fase 6: Hexágono Lilás -> Maçã Vermelha
+                startClass: 'shape-phase-5',
+                nextClass: 'shape-phase-6',
+                nextPhase: 7
+            },
+            { // Fase 7: Maçã Vermelha -> Pêra Verde Amarelada
+                startClass: 'shape-phase-6',
+                nextClass: 'shape-phase-7',
+                nextPhase: 1 // Loop para o início
+            }
+        ];
+
+        /**
+         * Inicializa a grade do jogo e os elementos da Fase 1.
+         */
+        function initializeGrid() {
+            gridElement.innerHTML = ''; // Limpa a grade
+            for (let i = 0; i < TOTAL_SHAPES; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+
+                const shape = document.createElement('div');
+                shape.className = `shape ${phases[currentPhase].startClass}`;
+                shape.addEventListener('click', handleShapeClick);
+
+                cell.appendChild(shape);
+                gridElement.appendChild(cell);
+            }
+            updatePhaseDisplay();
+        }
+
+        /**
+         * Atualiza o display da fase atual e dos cliques.
+         */
+        function updatePhaseDisplay() {
+            currentPhaseElement.textContent = currentPhase;
+            clickCountElement.textContent = totalClickCount;
+        }
+
+        /**
+         * Lida com o clique em uma forma.
+         * @param {Event} event O evento de clique.
+         */
+        function handleShapeClick(event) {
+            const shape = event.currentTarget;
+            
+            // 1. Verificar se a forma já foi clicada na fase atual
+            if (shape.classList.contains(phases[currentPhase].nextClass)) {
+                return; // Ignora cliques em formas já transformadas
+            }
+
+            // 2. Transforma a forma
+            const startClass = phases[currentPhase].startClass;
+            const nextClass = phases[currentPhase].nextClass;
+            
+            shape.classList.remove(startClass);
+            shape.classList.add(nextClass);
+
+            // 3. Atualiza os contadores
+            phaseClickCount++;
+            totalClickCount++;
+            updatePhaseDisplay();
+
+            // 4. Verifica se a fase terminou
+            if (phaseClickCount === TOTAL_SHAPES) {
+                setTimeout(nextPhase, 500); // Pequeno atraso antes de ir para a próxima fase
+            }
+        }
+
+        /**
+         * Move o jogo para a próxima fase.
+         */
+        function nextPhase() {
+            const nextPhaseIndex = phases[currentPhase].nextPhase;
+            currentPhase = nextPhaseIndex;
+            phaseClickCount = 0;
+
+            // Reinicializa a grade para a nova fase, com as formas já no estado inicial da nova fase
+            const allShapes = document.querySelectorAll('.shape');
+            allShapes.forEach(shape => {
+                // Remove todas as classes de fase anteriores
+                for(let i = 1; i <= 7; i++) {
+                     shape.classList.remove(phases[i].startClass);
+                     shape.classList.remove(phases[i].nextClass);
+                }
+                // Aplica a classe inicial da nova fase
+                shape.className = `shape ${phases[currentPhase].startClass}`;
+            });
+
+            alert(`Parabéns! Fase ${currentPhase - 1 || 7} concluída! Entrando na Fase ${currentPhase}.`);
+            updatePhaseDisplay();
+        }
+
+        // Inicia o jogo
+        initializeGrid();
+    </script>
+
+</body>
+</html>
